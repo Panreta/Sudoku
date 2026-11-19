@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sudoku Sprinkles</title>
+  <meta name="description" content="A cute, colorful Sudoku with easy, medium and hard puzzles, pencil notes and helpers." />
+  <meta name="theme-color" content="#ff7eb6" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍬</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="blobs" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+  <main class="app">
+    <header class="top">
+      <h1 class="title">
+        <span class="t1">S</span><span class="t2">u</span><span class="t3">d</span><span class="t4">o</span><span class="t5">k</span><span class="t6">u</span>
+        <small>Sprinkles 🍬</small>
+      </h1>
+      <div class="mascot">
+        <div class="mascot-face" id="mascotFace" aria-hidden="true">🐱</div>
+        <div class="bubble" id="bubble" role="status" aria-live="polite">Pick a level and let's play!</div>
+      </div>
+    </header>
+
+    <nav class="levels" role="radiogroup" aria-label="Difficulty">
+      <button class="level" data-level="easy" role="radio">🐣 Easy</button>
+      <button class="level" data-level="medium" role="radio">🐱 Medium</button>
+      <button class="level" data-level="hard" role="radio">🐲 Hard</button>
+      <button class="new-game" id="newGame" title="New puzzle">🎲 New</button>
+    </nav>
+
+    <section class="stats">
+      <span class="chip" title="Time"><span aria-hidden="true">⏱️</span> <b id="timer">0:00</b></span>
+      <span class="chip" title="Mistakes"><span aria-hidden="true">💔</span> <b id="mistakes">0</b></span>
+      <span class="chip" title="Hints used"><span aria-hidden="true">💡</span> <b id="hintsUsed">0</b></span>
+      <span class="chip robot" id="verified" title="Before you got this puzzle, our robot solved it with backtracking">🤖 …</span>
+    </section>
+
+    <section class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Sudoku board"></div>
+    </section>
+
+    <section class="tools">
+      <button class="tool" id="undo"><span class="ico">↩️</span><span>Undo</span></button>
+      <button class="tool" id="erase"><span class="ico">🧽</span><span>Erase</span></button>
+      <button class="tool" id="notes" aria-pressed="false"><span class="ico">✏️</span><span>Notes <em id="notesState">off</em></span></button>
+      <button class="tool" id="autoNotes"><span class="ico">🪄</span><span>Auto-notes</span></button>
+      <button class="tool" id="hint"><span class="ico">💡</span><span>Hint</span></button>
+    </section>
+
+    <section class="pad" id="pad" aria-label="Number pad"></section>
+
+    <section class="helper">
+      <div class="helper-title">🔦 Where can a number go?</div>
+      <div class="spot" id="spot" aria-label="Spotlight a number"></div>
+      <div class="peek" id="peek">Tap an empty cell to see what could fit there.</div>
+    </section>
+
+    <footer class="foot">
+      Keys: <kbd>1</kbd>–<kbd>9</kbd> place · <kbd>N</kbd> notes · <kbd>⌫</kbd> erase · <kbd>Z</kbd> undo · arrows move
+    </footer>
+  </main>
+
+  <div class="modal" id="winModal" hidden>
+    <div class="modal-card">
+      <div class="modal-emoji">🎉</div>
+      <h2>You did it!</h2>
+      <p id="winText"></p>
+      <button class="new-game big" id="playAgain">🎲 Play again</button>
+    </div>
+  </div>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

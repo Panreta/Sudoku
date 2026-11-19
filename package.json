@@ -1,0 +1,11 @@
+{
+  "name": "sudoku",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A cute, colorful Sudoku game with easy, medium and hard puzzles.",
+  "scripts": {
+    "start": "npx --yes serve .",
+    "test": "node --test test/*.test.js"
+  }
+}
