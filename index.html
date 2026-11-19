@@ -41,6 +41,25 @@
       <span class="chip robot" id="verified" title="Before you got this puzzle, our robot solved it with backtracking">🤖 …</span>
     </section>
 
+    <section class="scorebar">
+      <div class="score-box" id="scoreBox">
+        <span class="label">⭐ Score</span>
+        <b id="score">0</b>
+      </div>
+      <div class="streak-box">
+        <div class="streak-top"><span id="streakLabel">🔥 Streak 0</span><span class="mult" id="multLabel">×1</span></div>
+        <div class="streak-dots" id="streakDots" title="5 in a row = Combo, 7 in a row = Super Combo"></div>
+        <div class="speed" id="speed" title="Place another correct number within 30 seconds for a speed bonus">
+          <div class="speed-fill" id="speedFill"></div>
+          <span id="speedLabel">⚡ Speed bonus</span>
+        </div>
+      </div>
+      <div class="sound">
+        <button id="musicBtn" aria-label="Music" title="Music">🎵</button>
+        <button id="sfxBtn" aria-label="Sound effects" title="Sound effects">🔊</button>
+      </div>
+    </section>
+
     <section class="board-wrap">
       <div class="board" id="board" role="grid" aria-label="Sudoku board"></div>
     </section>
@@ -61,6 +80,19 @@
       <div class="peek" id="peek">Tap an empty cell to see what could fit there.</div>
     </section>
 
+    <details class="rules">
+      <summary>⭐ How scoring works</summary>
+      <ul>
+        <li>⚡ <b>Fast &amp; right:</b> a correct number within 30 seconds of your last correct one = <b>100</b></li>
+        <li>🐢 <b>Slow &amp; right:</b> more than 30 seconds = <b>40</b></li>
+        <li>💔 <b>Mistake:</b> <b>−50</b>, and your streak resets</li>
+        <li>🔥 <b>5 in a row:</b> COMBO! <b>+150</b> bonus, then points ×1.5</li>
+        <li>🌟 <b>7 in a row:</b> SUPER COMBO! <b>+300</b> bonus, then points ×2 (again every 7 more)</li>
+        <li>🐱 Medium scores ×1.5, 🐲 Hard ×2 · 🏁 Finish <b>+500</b> · 💎 No mistakes <b>+300</b></li>
+        <li>💡 Hints give no points and reset your streak</li>
+      </ul>
+    </details>
+
     <footer class="foot">
       Keys: <kbd>1</kbd>–<kbd>9</kbd> place · <kbd>N</kbd> notes · <kbd>⌫</kbd> erase · <kbd>Z</kbd> undo · arrows move
     </footer>
@@ -71,10 +103,13 @@
       <div class="modal-emoji">🎉</div>
       <h2>You did it!</h2>
       <p id="winText"></p>
+      <div class="win-score" id="winScore"></div>
       <button class="new-game big" id="playAgain">🎲 Play again</button>
     </div>
   </div>
   <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <div class="popups" id="popups" aria-hidden="true"></div>
+  <div class="combo-banner" id="comboBanner" role="status" hidden></div>
 
   <script type="module" src="src/app.js"></script>
 </body>

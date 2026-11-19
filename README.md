@@ -12,6 +12,13 @@ A cute, colorful Sudoku game. It's plain HTML, CSS and JavaScript with no build 
   - 🔦 **Where can a number go?** – tap a number to light up every cell it could still fit in
   - 👀 **Peek** – select an empty cell to see what could fit there
   - 💡 **Hint**, ↩️ **Undo**, 🧽 **Erase**
+- **Scoring:**
+  - ⚡ A correct number placed within 30 s of your previous correct one earns **100**. A slower correct number earns **40**.
+  - 💔 A mistake costs **50** and resets your streak.
+  - 🔥 **5 in a row** is a COMBO: +150 bonus, then points ×1.5. 🌟 **7 in a row** is a SUPER COMBO: +300 bonus, then ×2, repeating every 7 more.
+  - Medium scores ×1.5 and Hard ×2. Finishing adds +500, and +300 more if you made no mistakes. Your best score for each level is saved.
+  - Points pop up over the cell, combos get a banner, a board shake and confetti, and a speed bar shows how much of the 30-second window is left.
+- 🎵 **Music and sound effects** are synthesized with Web Audio, so there are no audio files. Both can be toggled.
 - Each digit has its own color, wrong entries wiggle, there's confetti when you win, and your progress is saved in the browser.
 - Keyboard: `1`–`9` place, `N` notes, `Backspace` erase, `Z` undo, `H` hint, arrow keys move.
 
@@ -33,6 +40,8 @@ ES modules don't load over `file://`, so open it through a local server.
 | File | Purpose |
 | --- | --- |
 | `src/sudoku.js` | Engine: generator, backtracking solver, solution counter, candidates |
+| `src/score.js` | Scoring rules (speed bonus, streaks, combos) |
+| `src/audio.js` | Chiptune music and sound effects |
 | `src/app.js` | UI state, rendering, input |
 | `index.html`, `style.css` | Page and styles |
-| `test/sudoku.test.js` | Checks that generated puzzles are solvable and unique |
+| `test/` | Generator/solver and scoring tests |

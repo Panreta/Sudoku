@@ -1,6 +1,9 @@
 import { DIFFICULTIES, PEERS, rowOf, colOf, boxOf, candidates, generatePuzzle } from './sudoku.js';
+import { SCORING, freshScore, streakMultiplier, scoreCorrect, scoreMistake, scoreHint, scoreWin } from './score.js';
+import * as audio from './audio.js';
 
 const STORAGE_KEY = 'sudoku-sprinkles-v1';
+const BEST_KEY = 'sudoku-sprinkles-best';
 const $ = (id) => document.getElementById(id);
 
 const MASCOTS = { easy: '🐣', medium: '🐱', hard: '🐲' };
@@ -30,6 +33,8 @@ function newGame(difficulty) {
     hints: 0,
     seconds: 0,
     won: false,
+    score: freshScore(),
+    scored: new Array(81).fill(false),
     clues,
     verification,
   };
@@ -51,7 +56,7 @@ function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && !saved.won && Array.isArray(saved.values) && saved.values.length === 81) {
-      state = { ...saved, history: [], spot: 0 };
+      state = { score: freshScore(), scored: new Array(81).fill(false), ...saved, history: [], spot: 0 };
       return true;
     }
   } catch { /* ignore corrupt or blocked storage */ }
@@ -91,12 +96,31 @@ function input(d) {
 
     if (d !== state.solution[i]) {
       state.mistakes++;
+      const lost = scoreMistake(state.score);
+      popup(i, lost ? `${lost}` : 'oops', 'bad');
+      audio.playMistake();
+      bumpScore('down');
       say(pick(OOPS));
       flash(i, 'shake');
     } else {
       flash(i, 'pop');
-      if (state.values.filter((v) => v === d).length === 9) say(`All the ${d}s are home! 🏡`);
-      else if (Math.random() < 0.3) say(pick(CHEERS));
+      // Each cell pays out once, so erasing and re-entering can't farm points.
+      const r = state.scored[i] ? null : scoreCorrect(state.score, state.seconds, state.difficulty);
+      state.scored[i] = true;
+      if (r) {
+        popup(i, `+${r.points}${r.fast ? ' ⚡' : ''}`, r.fast ? 'fast' : 'slow');
+        audio.playCorrect(r.fast, r.streak);
+        bumpScore('up');
+      }
+      if (r?.combo) {
+        comboBanner(r.combo, r.streak);
+      } else if (state.values.filter((v) => v === d).length === 9) {
+        say(`All the ${d}s are home! 🏡`);
+      } else if (r?.fast && Math.random() < 0.4) {
+        say(pick(['Speedy! ⚡', 'Zoom zoom! 🏎️', 'Quick paws! 🐾']));
+      } else if (Math.random() < 0.3) {
+        say(pick(CHEERS));
+      }
     }
   }
   save();
@@ -161,6 +185,9 @@ function hint() {
   state.notes[i] = 0;
   for (const p of PEERS[i]) state.notes[p] &= ~(1 << d);
   state.hints++;
+  state.scored[i] = true;
+  scoreHint(state.score);
+  audio.playHint();
   state.selected = i;
   say(`Psst… row ${rowOf(i) + 1}, column ${colOf(i) + 1} is a ${d} 🤫`);
   flash(i, 'hinted');
@@ -181,14 +208,29 @@ function spotlight(d) {
 function checkWin() {
   if (!state.values.every((v, i) => v === state.solution[i])) return;
   state.won = true;
+  const { win, perfect } = scoreWin(state.score, state.difficulty, state.mistakes);
+  const best = loadBest();
+  const isRecord = state.score.points > (best[state.difficulty] ?? 0);
+  if (isRecord) {
+    best[state.difficulty] = state.score.points;
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch { /* ignore */ }
+  }
   save();
   render();
   const t = fmtTime(state.seconds);
   $('winText').textContent =
     `${DIFFICULTIES[state.difficulty].label} solved in ${t} with ${state.mistakes} mistake${state.mistakes === 1 ? '' : 's'}` +
     ` and ${state.hints} hint${state.hints === 1 ? '' : 's'}.`;
+  $('winScore').innerHTML =
+    `<div class="final">⭐ ${state.score.points.toLocaleString()}</div>` +
+    `<div class="row"><span>🏁 Finish bonus</span><b>+${win}</b></div>` +
+    (perfect ? `<div class="row"><span>💎 No mistakes</span><b>+${perfect}</b></div>` : '') +
+    `<div class="row"><span>🔥 Best streak</span><b>${state.score.bestStreak}</b></div>` +
+    `<div class="row"><span>🏆 Best ${DIFFICULTIES[state.difficulty].label}</span><b>${(best[state.difficulty] ?? 0).toLocaleString()}</b></div>` +
+    (isRecord ? '<div class="record">✨ NEW HIGH SCORE! ✨</div>' : '');
   setTimeout(() => ($('winModal').hidden = false), 400);
   say('WOW! You solved it! 🎉🎉🎉');
+  audio.playWin();
   confetti();
 }
 
@@ -269,7 +311,9 @@ function render() {
   $('notesState').textContent = state.notesMode ? 'on' : 'off';
   document.querySelectorAll('.level').forEach((b) =>
     b.setAttribute('aria-checked', String(b.dataset.level === state.difficulty)));
-  $('mascotFace').textContent = state.won ? '😻' : MASCOTS[state.difficulty];
+  const streak = state.score.streak;
+  $('mascotFace').textContent = state.won ? '😻' : streak >= 7 ? '🤩' : streak >= 5 ? '😸' : MASCOTS[state.difficulty];
+  renderScore();
 
   $('mistakes').textContent = state.mistakes;
   $('hintsUsed').textContent = state.hints;
@@ -281,6 +325,33 @@ function render() {
     `${v.backtracks} backtracks) and checked to have exactly one solution.`;
 
   renderPeek();
+}
+
+function renderScore() {
+  const { points, streak } = state.score;
+  $('score').textContent = points.toLocaleString();
+  const mult = streakMultiplier(streak) * (SCORING.difficulty[state.difficulty] ?? 1);
+  $('streakLabel').textContent = `🔥 Streak ${streak}`;
+  $('multLabel').textContent = `×${mult}`;
+  $('multLabel').classList.toggle('hot', streak >= 5);
+  $('multLabel').classList.toggle('blazing', streak >= 7);
+  const shown = streak > 7 ? ((streak - 1) % 7) + 1 : streak;
+  [...$('streakDots').children].forEach((dot, k) => dot.classList.toggle('on', k < shown));
+  $('streakDots').classList.toggle('blazing', streak >= 7);
+  renderSpeed();
+  $('musicBtn').setAttribute('aria-pressed', String(audio.isMusicOn()));
+  $('musicBtn').textContent = audio.isMusicOn() ? '🎵' : '🔇';
+  $('sfxBtn').setAttribute('aria-pressed', String(audio.isSfxOn()));
+  $('sfxBtn').textContent = audio.isSfxOn() ? '🔊' : '🔈';
+}
+
+/** Drains over the fast window after each correct move. */
+function renderSpeed() {
+  const last = state.score.lastCorrectAt;
+  const left = last === null || state.won ? 0 : Math.max(0, SCORING.fastWindow - (state.seconds - last));
+  $('speedFill').style.width = `${(left / SCORING.fastWindow) * 100}%`;
+  $('speedLabel').textContent = left ? `⚡ Speed bonus ${left}s` : '⚡ Speed bonus: place a correct number';
+  $('speed').classList.toggle('live', left > 0);
 }
 
 function renderPeek() {
@@ -335,6 +406,67 @@ function confetti() {
   setTimeout(() => (box.innerHTML = ''), 5500);
 }
 
+function popup(i, text, kind) {
+  const r = cells[i].getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = `popup ${kind}`;
+  p.textContent = text;
+  p.style.left = `${r.left + r.width / 2}px`;
+  p.style.top = `${r.top}px`;
+  $('popups').appendChild(p);
+  setTimeout(() => p.remove(), 1200);
+}
+
+function bumpScore(dir) {
+  const el = $('scoreBox');
+  el.classList.remove('up', 'down');
+  void el.offsetWidth;
+  el.classList.add(dir);
+}
+
+function comboBanner(combo, streak) {
+  const big = combo.mult >= 2;
+  const el = $('comboBanner');
+  el.innerHTML =
+    `<div class="combo-title">${big ? '🌟' : '🔥'} ${combo.name}! ${big ? '🌟' : '🔥'}</div>` +
+    `<div class="combo-sub">${streak} in a row · +${Math.round(combo.bonus * (SCORING.difficulty[state.difficulty] ?? 1))} bonus · ×${combo.mult} points</div>`;
+  el.className = `combo-banner ${big ? 'big' : ''}`;
+  el.hidden = false;
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(comboBanner.t);
+  comboBanner.t = setTimeout(() => (el.hidden = true), 1900);
+  audio.playCombo(big);
+  burst(big ? 70 : 35);
+  say(big ? `${streak} in a row?! You’re a Sudoku superstar! 🌟` : 'Combo! Points are now ×1.5 — keep going! 🔥');
+  document.body.classList.remove('rumble');
+  void document.body.offsetWidth;
+  document.body.classList.add('rumble');
+}
+
+/** Small confetti burst from the middle of the board. */
+function burst(n) {
+  const box = $('confetti');
+  const r = $('board').getBoundingClientRect();
+  const colors = ['--d1', '--d2', '--d3', '--d4', '--d5', '--d6', '--d7', '--d8', '--d9'];
+  for (let k = 0; k < n; k++) {
+    const p = document.createElement('b');
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 80 + Math.random() * 160;
+    p.style.left = `${r.left + r.width / 2}px`;
+    p.style.top = `${r.top + r.height / 2}px`;
+    p.style.background = `var(${pick(colors)})`;
+    p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+    p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+    box.appendChild(p);
+    setTimeout(() => p.remove(), 1000);
+  }
+}
+
+function loadBest() {
+  try { return JSON.parse(localStorage.getItem(BEST_KEY)) ?? {}; } catch { return {}; }
+}
+
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -357,6 +489,31 @@ function wire() {
   $('notes').addEventListener('click', toggleNotes);
   $('autoNotes').addEventListener('click', autoNotes);
   $('hint').addEventListener('click', hint);
+  $('musicBtn').addEventListener('click', () => {
+    say(audio.toggleMusic() ? 'Music on! 🎶' : 'Shh… music off 🤫');
+    renderScore();
+  });
+  $('sfxBtn').addEventListener('click', () => {
+    audio.toggleSfx();
+    renderScore();
+  });
+  // Browsers only allow audio after the first tap or key press.
+  // The music button handles its own first tap, so it isn't toggled twice.
+  const unlock = (e) => {
+    if (e.target.closest?.('#musicBtn')) return;
+    audio.unlock();
+    document.removeEventListener('pointerdown', unlock);
+    document.removeEventListener('keydown', unlock);
+  };
+  document.addEventListener('pointerdown', unlock);
+  document.addEventListener('keydown', unlock);
+
+  for (let k = 0; k < 7; k++) {
+    const dot = document.createElement('i');
+    if (k === 4) dot.className = 'mark';
+    if (k === 6) dot.className = 'mark big';
+    $('streakDots').appendChild(dot);
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.metaKey || e.altKey) return;
@@ -383,6 +540,7 @@ function wire() {
     if (!state.won && document.visibilityState === 'visible') {
       state.seconds++;
       $('timer').textContent = fmtTime(state.seconds);
+      renderSpeed();
       if (state.seconds % 10 === 0) save();
     }
   }, 1000);
